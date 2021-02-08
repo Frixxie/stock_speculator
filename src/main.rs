@@ -2,6 +2,7 @@ use chrono::prelude::*;
 use reqwest::blocking::Client;
 use serde_json::Value;
 use std::convert::{TryFrom, TryInto};
+use std::fmt;
 use std::fs;
 use std::io;
 
@@ -34,6 +35,22 @@ impl Article {
             published_at,
             content,
         }
+    }
+}
+
+impl fmt::Display for Article {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
+            self.source_name,
+            self.author,
+            self.title,
+            self.desc,
+            self.url,
+            self.published_at,
+            self.content
+        )
     }
 }
 
@@ -94,23 +111,6 @@ impl News {
     pub fn get_num_articles(&self) -> usize {
         self.articles.len()
     }
-    pub fn print_articles(&self) {
-        for article in &self.articles {
-            println!("{}", article.source_name);
-            println!("{}", article.author);
-            println!("{}", article.title);
-            println!("{}", article.published_at);
-            println!(
-                "{:?}",
-                DateTime::parse_from_rfc3339(&article.published_at)
-                    .unwrap()
-                    .timestamp()
-            );
-            println!("{}", article.desc);
-            println!("{}", article.url);
-            println!("{}", article.content);
-        }
-    }
 }
 
 fn get_news(client: &Client, term: &str, apikey: &str) -> Result<News, io::Error> {
@@ -120,7 +120,12 @@ fn get_news(client: &Client, term: &str, apikey: &str) -> Result<News, io::Error
     );
     let resp: Value = serde_json::from_str(&client.get(&url).send().unwrap().text().unwrap())?;
 
-    let status: Status = resp["status"].to_string().try_into().unwrap();
+    let status: Status = resp["status"]
+        .to_string()
+        .trim_matches('"')
+        .to_owned()
+        .try_into()
+        .unwrap();
 
     let total_results = resp["totalResults"].as_u64().unwrap();
 
@@ -156,10 +161,6 @@ fn main() -> Result<(), io::Error> {
     news.print_articles();
 
     println!("{}", news.get_num_articles());
-
-    let pub_at: String = "2021-01-09T04:55:00Z".to_owned();
-    let dt = DateTime::parse_from_rfc3339(&pub_at).unwrap();
-    println!("{:?}", dt.timestamp());
 
     Ok(())
 }
