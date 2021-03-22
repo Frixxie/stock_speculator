@@ -42,7 +42,7 @@ impl fmt::Display for Article {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}\n{}\n{}\n{}\n{}\n{}\n{}\n",
+            "{}\n{}\n{}\n{}\n{}\n{}\n{}",
             self.source_name,
             self.author,
             self.title,
@@ -111,12 +111,17 @@ impl News {
     pub fn get_num_articles(&self) -> usize {
         self.articles.len()
     }
+    pub fn print_articles(&self) {
+        for article in &self.articles {
+            println!("{}", article);
+        }
+    }
 }
 
-fn get_news(client: &Client, term: &str, apikey: &str) -> Result<News, io::Error> {
+fn get_news(client: &Client, term: &str, apikey: &str, page_size: u32) -> Result<News, io::Error> {
     let url = format!(
-        "https://newsapi.org/v2/everything?q={}&pageSize=100&sortBy=popularity&apiKey={}",
-        term, apikey
+        "https://newsapi.org/v2/everything?q={}&pageSize={}&sortBy=popularity&apiKey={}",
+        term, page_size, apikey
     );
     let resp: Value = serde_json::from_str(&client.get(&url).send().unwrap().text().unwrap())?;
 
@@ -149,18 +154,39 @@ fn get_news(client: &Client, term: &str, apikey: &str) -> Result<News, io::Error
     Ok(news)
 }
 
+fn get_symbol(client: &Client, term: &str, apikey: &str) -> Vec<(String, String)> {
+    let url = format!(
+        "https://alphavantage.co/query?function=SYMBOL_SEARCH&keywords={}&apikey={}",
+        term, apikey
+    );
+    let res: Value =
+        serde_json::from_str(&client.get(&url).send().unwrap().text().unwrap()).unwrap();
+
+    let reses = res["bestMatches"].as_array().unwrap();
+
+    let mut res: Vec<(String, String)> = Vec::<(String, String)>::new(); 
+
+    for tmp in reses {
+        res.push((tmp["symbol"].to_string(), tmp["name"].to_string()));
+    }
+
+    res
+}
+
 fn main() -> Result<(), io::Error> {
-    let api = fs::read_to_string("apikey")?;
-    api.trim_matches(char::is_control).to_string();
+    let apikey = fs::read_to_string("apikey_newsapi")?;
+    apikey.trim_matches(char::is_control).to_string();
     let client = Client::new();
 
-    let news = get_news(&client, "Apple", &api).unwrap();
+    let search_term = "Apple".to_owned();
 
-    println!("{:?}, {}", news.status, news.total_results);
+    // let news = get_news(&client, &search_term, &apikey, 100).unwrap();
 
-    news.print_articles();
+    // println!("{:?}, {}", news.status, news.total_results);
 
-    println!("{}", news.get_num_articles());
+    // news.print_articles();
+
+    // println!("{}", news.get_num_articles());
 
     Ok(())
 }
